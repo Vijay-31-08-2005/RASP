@@ -17,15 +17,6 @@
      ```
    - Click **OK** and restart the command prompt.
 
-### Linux/Mac
-1. Move the executable to `/usr/local/bin/`:
-   ```sh
-   sudo mv rasp /usr/local/bin/
-   ```
-2. Make it executable:
-   ```sh
-   chmod +x /usr/local/bin/rasp
-   ```
 Now you can use `rasp` globally.
 
 ## Usage
@@ -68,5 +59,5 @@ rasp clone octocat Hello-World C:\Projects\
 This project is licensed under the MIT License.
 
 ## Author
-Created by **Dharshik**.
+Created by **Kisetsu**.
 
