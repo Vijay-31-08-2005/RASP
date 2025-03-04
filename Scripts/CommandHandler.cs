@@ -1,9 +1,4 @@
-﻿using System;
-using System.IO;
-using System.Text;
-using LibGit2Sharp;
-
-namespace RASP {
+﻿namespace RASP {
     public static class CommandHandler {
 
         private static readonly int commandIndex = 0;
@@ -16,7 +11,9 @@ namespace RASP {
             { Commands.HELP,  new HelpCommand() },
             { Commands.VERSION,  new VersionCommand() },
             { Commands.README, new ReadmeCommand() },
-            { Commands.CLONE,  new CloneCommand() }
+            { Commands.CLONE,  new CloneCommand() },
+            { Commands.UPLOAD, new UploadCommand() },
+            { Commands.DOWNLOAD, new DownloadCommand() }
         };
 
 

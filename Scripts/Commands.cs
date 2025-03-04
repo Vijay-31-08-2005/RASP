@@ -1,6 +1,5 @@
 ﻿using LibGit2Sharp;
-using System;
-using System.Text;
+using Azure.Storage.Blobs;
 
 namespace RASP {
     public static class Commands {
@@ -13,6 +12,8 @@ namespace RASP {
         public const string COPY = "copy";
         public const string README = "readme";
         public const string CLONE = "clone";
+        public const string UPLOAD = "upload";
+        public const string DOWNLOAD = "download";
     }
 
     public interface ICommand {
@@ -35,6 +36,8 @@ Commands:
   {Commands.COPY}        - Copy a file.
   {Commands.DELETE}      - Delete a file.
   {Commands.CLONE}       - Clone a GitHub repository.
+  {Commands.UPLOAD}      - Upload a file to Azure Blob Storage.
+  {Commands.DOWNLOAD}    - Download a file from Azure Blob Storage.
 ";
 
         public string Usage => $"{Commands.RASP} {Commands.HELP}";
@@ -57,13 +60,15 @@ Remote Access Storage Pool (RASP)
 RASP is a command-line tool for managing files and repositories.
 
 Examples:
-  rasp display 'Hello World'   - Prints 'Hello World' to the console.
-  rasp move file.txt folder/   - Moves 'file.txt' to 'folder/'.
-  rasp copy file.txt backup/   - Copies 'file.txt' to 'backup/'.
-  rasp delete old.txt          - Deletes 'old.txt'.
-  rasp clone user repo folder  - Clones 'repo' from GitHub into 'folder'.
+  rasp display 'Hello World'                           - Prints 'Hello World' to the console.
+  rasp move file.txt folder/                           - Moves 'file.txt' to 'folder/'.
+  rasp copy file.txt backup/                           - Copies 'file.txt' to 'backup/'.
+  rasp delete old.txt                                  - Deletes 'old.txt'.
+  rasp clone user repo folder                          - Clones 'repo' from GitHub into 'folder'.
+  rasp upload container conn%asdfawe file.txt          - Uploads 'file' to Azure Blob Storage.
+  rasp download blob container conn%asdfawe folder     - Downloads 'blob' from Azure Blob Storage.
 
-For more information, use 'rasp help'.
+For more information, use 'rasp -help'.
 ";
         public string Usage => $"{Commands.RASP} {Commands.README}";
 
@@ -225,4 +230,88 @@ For more information, use 'rasp help'.
             }
         }
     }
+
+    public class UploadCommand : ICommand {
+        public string Usage => $"{Commands.RASP} {Commands.UPLOAD} <containerName> <connectionString> <filePath>";
+
+        public void Execute( string[] args ) {
+
+            if ( args.Length < 4) {
+                Console.WriteLine("Usage: " + Usage);
+                return;
+            }
+
+            string containerName = args[1];
+            string connectionString = args[2];
+            string filePath = args[3];
+
+            if ( !File.Exists(filePath) ) {
+                Console.WriteLine($"Error: File {Path.GetFileName(filePath)} not found.");
+                return;
+            }
+
+            try {
+                BlobServiceClient blobServiceClient = new(connectionString);
+
+                BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+                string blobName = Path.GetFileName(filePath);
+                BlobClient blobClient = containerClient.GetBlobClient(blobName);
+
+                using FileStream fs = File.OpenRead(filePath);
+                blobClient.Upload(fs, true);
+                fs.Close();
+
+                Console.WriteLine($"{blobName} uploaded successfully to Azure Blob Storage!");
+            } catch (Exception ex) {
+                Console.WriteLine($"Upload Failed: {ex.Message}");
+            }
+        }
+    }
+
+    public class DownloadCommand : ICommand {
+        public string Usage => $"{Commands.RASP} {Commands.DOWNLOAD} <blobName> <containerName> <connectionString> <directory>";
+
+        public void Execute( string[] args ) {
+            if ( args.Length < 4 ) {
+                Console.WriteLine("Usage: " + Usage);
+                return;
+            }
+
+            string blobName = args[1];
+            string containerName = args[2];
+            string connectionString = args[3];
+            string directory = args.Length > 4 ? args[4] : Directory.GetCurrentDirectory();
+
+            try {
+                BlobServiceClient blobServiceClient = new(connectionString);
+                BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+                BlobClient blobClient = containerClient.GetBlobClient(blobName);
+
+                if ( !Directory.Exists(directory) ) {
+                    Directory.CreateDirectory(directory);
+                }
+
+                string filePath = Path.Combine(directory, blobName);
+
+                if ( File.Exists(filePath) ) {
+                    Console.Write("File already exists. Overwrite? (y/n): ");
+
+                    if ( Console.ReadLine() != "y" || Console.ReadLine() != "Y" ) {
+                        string fileNameWithoutExt = Path.GetFileNameWithoutExtension(blobName);
+                        string extension = Path.GetExtension(blobName);
+                        string newFileName = $"{fileNameWithoutExt}_copy{extension}";
+
+                        filePath = Path.Combine(directory, newFileName);
+                    }
+                }
+
+                blobClient.DownloadTo(filePath);
+                Console.WriteLine($"{blobName} downloaded successfully as {Path.GetFileName(filePath)} to {directory}");
+            } catch ( Exception ex ) {
+                Console.WriteLine($"Download Failed: {ex.Message}");
+            }
+        }
+    }
+
+
 }
