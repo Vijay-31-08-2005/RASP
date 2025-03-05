@@ -40,21 +40,23 @@ Now you can use `rasp` globally.
 Run the following command to see available options:
 
 ```sh
-rasp -help
+rasp --help
 ```
 
 ### Commands
 
-| Command                                    | Description                |
-| ------------------------------------------ | -------------------------- |
-| `rasp display <message>`                   | Displays a custom message  |
-| `rasp -help`                               | Shows help information     |
-| `rasp readme`                              | Displays the README        |
-| `rasp --version`                           | Displays the version       |
-| `rasp move <source> <destination>`         | Moves a file               |
-| `rasp copy <source> <destination>`         | Copies a file              |
-| `rasp delete <file>`                       | Deletes a file             |
-| `rasp clone <username> <repo> <directory>` | Clones a GitHub repository |
+| Command                                                                      | Description                               |
+| ---------------------------------------------------------------------------- | ----------------------------------------- |
+| `rasp display <message>`                                                     | Displays a custom message                 |
+| `rasp --help`                                                                 | Shows help information                    |
+| `rasp readme`                                                                | Displays the README                       |
+| `rasp --version`                                                             | Displays the version                      |
+| `rasp move <source> <destination>`                                           | Moves a file                              |
+| `rasp copy <source> <destination>`                                           | Copies a file                             |
+| `rasp delete <file>`                                                         | Deletes a file                            |
+| `rasp clone <username> <repo> <directory>`                                   | Clones a GitHub repository                |
+| `rasp upload <containerName> <connectionString> <filePath>`                  | Uploads a file to Azure Blob Storage      |
+| `rasp download <blobName> <containerName> <connectionString> <directory>`    |  Downloads a blob from Azure Blob Storage |
 
 ## Example Usage
 
@@ -82,11 +84,23 @@ rasp delete C:\Users\User\oldfile.txt
 rasp clone octocat Hello-World C:\Projects\
 ```
 
+### Uploads a File
+
+```sh
+rasp upload container conn%asdfawe C:\Projects\file.txt
+```
+
+### Downloads a File
+
+```sh
+rasp download blob container conn%asdfawe C:\Projects\folder
+```
+
 ## License
 
 This project is licensed under the MIT License.
 
 ## Author
 
-Created by **Dharshik**.
+Created by **Kisetsu**.
 
