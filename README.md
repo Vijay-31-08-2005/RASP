@@ -1,4 +1,4 @@
-# Rasp - Remote Access Storage Pool
+# RASP - Remote Access Storage Pool
 
 ## Overview
 
