@@ -100,7 +100,7 @@ For more information, use 'rasp -help'.
 
     public class DisplayCommand : ICommand {
 
-        private readonly int messageIndex = 2;
+        private readonly int messageIndex = 1;
         public string Usage => $"{Commands.RASP} {Commands.DISPLAY} <message>";
 
         public void Execute(string[] args ) {
