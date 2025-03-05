@@ -1,11 +1,12 @@
 ﻿using LibGit2Sharp;
 using Azure.Storage.Blobs;
+using System.Text.RegularExpressions;
 
 namespace RASP {
     public static class Commands {
         public const string RASP = "rasp";
         public const string DISPLAY = "display";
-        public const string HELP = "-help";
+        public const string HELP = "--help";
         public const string VERSION = "--version";
         public const string MOVE = "move";
         public const string DELETE = "delete";
@@ -29,7 +30,7 @@ Usage:
 
 Commands:
   {Commands.DISPLAY}     - Displays a message.
-  {Commands.HELP}       - Show help information.
+  {Commands.HELP}        - Show help information.
   {Commands.README}      - Show this README file.
   {Commands.VERSION}   - Show the version of RASP.
   {Commands.MOVE}        - Move a file from one location to another.
@@ -53,7 +54,7 @@ Commands:
 
     public class ReadmeCommand : ICommand {
 
-        private readonly string readmeText = @"
+        private readonly string readmeText = @$"
 Remote Access Storage Pool (RASP)
 ==================================
 
@@ -68,7 +69,7 @@ Examples:
   rasp upload container conn%asdfawe file.txt          - Uploads 'file' to Azure Blob Storage.
   rasp download blob container conn%asdfawe folder     - Downloads 'blob' from Azure Blob Storage.
 
-For more information, use 'rasp -help'.
+For more information, use '{Commands.RASP} {Commands.HELP}'.
 ";
         public string Usage => $"{Commands.RASP} {Commands.README}";
 
@@ -294,15 +295,7 @@ For more information, use 'rasp -help'.
                 string filePath = Path.Combine(directory, blobName);
 
                 if ( File.Exists(filePath) ) {
-                    Console.Write("File already exists. Overwrite? (y/n): ");
-
-                    if ( Console.ReadLine() != "y" || Console.ReadLine() != "Y" ) {
-                        string fileNameWithoutExt = Path.GetFileNameWithoutExtension(blobName);
-                        string extension = Path.GetExtension(blobName);
-                        string newFileName = $"{fileNameWithoutExt}_copy{extension}";
-
-                        filePath = Path.Combine(directory, newFileName);
-                    }
+                    filePath = GetUniqueFilePath(directory, blobName);
                 }
 
                 blobClient.DownloadTo(filePath);
@@ -311,6 +304,32 @@ For more information, use 'rasp -help'.
                 Console.WriteLine($"Download Failed: {ex.Message}");
             }
         }
+
+        private static string GetUniqueFilePath( string directory, string fileName ) {
+            string fileNameWithoutExt = Path.GetFileNameWithoutExtension(fileName);
+            string extension = Path.GetExtension(fileName);
+
+            Match match = Regex.Match(fileNameWithoutExt, @"^(.*) \((\d+)\)$");
+
+            string baseName = fileNameWithoutExt;
+            int count = 1;
+
+            if ( match.Success ) {
+                baseName = match.Groups[1].Value; 
+                count = int.Parse(match.Groups[2].Value) + 1; 
+            }
+
+            string newFilePath;
+
+            do {
+                newFilePath = Path.Combine(directory, $"{baseName} ({count}){extension}");
+                count++;
+            } while ( File.Exists(newFilePath) );
+
+            return newFilePath;
+        }
+
+
     }
 
 
