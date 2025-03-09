@@ -1,19 +1,33 @@
-﻿namespace RASP {
+﻿namespace Rasp {
     public static class CommandHandler {
 
         private static readonly int commandIndex = 0;
 
         private static readonly Dictionary<string, ICommand> commands = new(StringComparer.OrdinalIgnoreCase) {
-            { Commands.DISPLAY, new DisplayCommand() },
-            { Commands.MOVE,  new MoveCommand() },
-            { Commands.COPY,  new CopyCommand() },
-            { Commands.DELETE,  new DeleteCommand() },
-            { Commands.HELP,  new HelpCommand() },
-            { Commands.VERSION,  new VersionCommand() },
-            { Commands.README, new ReadmeCommand() },
-            { Commands.CLONE,  new CloneCommand() },
-            { Commands.UPLOAD, new UploadCommand() },
-            { Commands.DOWNLOAD, new DownloadCommand() }
+            { Commands.add, new AddCommand() },
+            { Commands.clone,  new CloneCommand() },
+            { Commands.commit, new CommitCommand() },
+            { Commands.copy,  new CopyCommand() },
+            { Commands._delete, new DeleteCommand() },
+            { Commands.delete,  new DeleteCommand() },
+            { Commands._displayMessage, new DisplayCommand() },
+            { Commands.display, new DisplayCommand() },
+            { Commands.drop, new DropCommand() },            
+            { Commands._help,  new HelpCommand() },
+            { Commands.help,  new HelpCommand() },
+            { Commands.info, new InfoCommand() },
+            { Commands.init, new InitCommand() },
+            { Commands.logs, new LogsCommand() },
+            { Commands.move,  new MoveCommand() },
+            { Commands.pull, new PullCommand() },
+            { Commands.push, new PushCommand() },
+            { Commands._profile, new ProfileCommand() },
+            { Commands.revert, new RevertCommand() },
+            { Commands._rollback, new RollbackCommand() },
+            { Commands.rollback, new RollbackCommand() },
+            { Commands.status, new StatusCommand() },
+            { Commands._version,  new VersionCommand() },
+            { Commands.version,  new VersionCommand() },
         };
 
 
@@ -22,17 +36,16 @@
                 new HelpCommand().Execute(args);
                 return;
             }
-
             string command = args[commandIndex];
 
             if ( commands.TryGetValue(command, out ICommand ? value) ) {
                 try {
                     value.Execute(args);
                 } catch ( Exception ex ) {
-                    Console.WriteLine($"Error: {ex.Message}");
+                    RaspUtils.DisplayMessage($"Error: {ex.Message}", Color.Red);
                 }
             } else {
-                Console.WriteLine($"Error: Unknown command '{command}'. See '{Commands.RASP} {Commands.HELP}'.");
+                RaspUtils.DisplayMessage($"Error: Unknown command '{command}'. See '{Commands.rasp} {Commands.help}'.", Color.Red);
             }
         }
     }
