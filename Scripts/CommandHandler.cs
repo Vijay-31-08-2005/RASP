@@ -1,4 +1,8 @@
-﻿namespace Rasp {
+﻿using LibGit2Sharp;
+using Newtonsoft.Json.Linq;
+using System.Text.RegularExpressions;
+
+namespace Rasp {
     public static class CommandHandler {
 
         private static readonly int commandIndex = 0;
@@ -28,17 +32,92 @@
             { Commands.status, new StatusCommand() },
             { Commands._version,  new VersionCommand() },
             { Commands.version,  new VersionCommand() },
+            { Commands._branch, new BranchCommand() },
         };
 
+        private static List<string> repoCommands = new() {
+            Commands.drop,
+            Commands.add,
+            Commands.commit,
+            Commands._profile, 
+            Commands.revert, 
+            Commands._rollback, 
+            Commands.rollback, 
+            Commands.status,  
+            Commands._branch,
+            Commands.logs,
+        };
 
         private static void Main( string[] args ) {
-            if ( args.Length == 0 ) {
-                new HelpCommand().Execute(args);
+
+            if( args.Length == 0 ) {
+                ShowHelp(args);
+            }
+
+            if ( repoCommands.Contains(args[commandIndex]) ) {
+                RaspUtils.DisplayMessage("Error: Initialize the Rasp repository", Color.Red);
                 return;
             }
-            string command = args[commandIndex];
 
-            if ( commands.TryGetValue(command, out ICommand ? value) ) {
+            if ( args[commandIndex] != Commands.init ) {
+                ExecuteCommand(args);
+                return;
+            }
+
+            do {
+                if ( Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), ".rasp")) ) {
+                    string configFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/config.json");
+                    Dictionary<string, string> config = RaspUtils.LoadJson<string>(configFile);
+                    string? branch = config["branch"];
+                    Console.Write($"{Directory.GetCurrentDirectory()}:");
+                    if ( !string.IsNullOrEmpty(branch) ) {
+                        Console.ForegroundColor = ConsoleColor.Cyan;
+                        Console.Write($" ({branch}) > ");
+                        Console.ResetColor();
+                    } else {
+                        Console.Write(" > ");
+                    }
+                } else {
+                    if ( args[commandIndex] == Commands.init ) {
+                        try {
+                            commands[Commands.init].Execute(args);
+                        } catch ( Exception ex ) {
+                            RaspUtils.DisplayMessage($"Error: {ex.Message}", Color.Red);
+                        }
+                        continue;
+                    }
+                }
+
+                string? input = Console.ReadLine()?.Trim();
+                if ( string.IsNullOrEmpty(input) ) {
+                    if ( !Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), ".rasp")) ) {
+                        break;
+                    }
+                    continue; 
+                }
+                if ( input == Commands.esc ) break;
+                args = input.Split(' ');
+                args = [.. Regex.Matches(input, @"[\""].+?[\""]|[^ ]+")
+                                    .Select(m => m.Value.Trim('"'))
+                                    ];
+                if ( args[commandIndex] == Commands.rasp ) {
+                    string[] newArgs = [.. args.Where(arg => arg != "rasp")];
+
+                    if ( newArgs.Length == 0 ) {
+                        ShowHelp(newArgs);
+                        continue;
+                    }
+                    ExecuteCommand(newArgs);
+                } else {
+                    RaspUtils.DisplayMessage($"Error: Unknown command '{args[commandIndex]}'. See '{Commands.rasp} {Commands.help}'.", Color.Red);
+                }
+
+            } while ( true );
+        }
+
+        private static void ExecuteCommand( string[] args) {
+            string command = args[commandIndex];
+            if ( commands.TryGetValue(command, out ICommand? value) ) {
                 try {
                     value.Execute(args);
                 } catch ( Exception ex ) {
@@ -47,6 +126,11 @@
             } else {
                 RaspUtils.DisplayMessage($"Error: Unknown command '{command}'. See '{Commands.rasp} {Commands.help}'.", Color.Red);
             }
+        }
+
+        private static void ShowHelp( string[] args ) {
+            new HelpCommand().Execute(args);
+            return;
         }
     }
 }

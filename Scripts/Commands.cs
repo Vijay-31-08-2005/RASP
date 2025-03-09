@@ -34,6 +34,8 @@ namespace Rasp {
         public const string revert = "revert";
         public const string _profile = "-p";
         public const string drop = "drop";
+        public const string _branch = "-b";
+        public const string esc = "/esc";
     }
 
     public interface ICommand {

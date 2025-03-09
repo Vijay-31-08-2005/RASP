@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using LibGit2Sharp;
+using Newtonsoft.Json;
 using System.Text;
 
 namespace Rasp {
@@ -16,6 +17,7 @@ namespace Rasp {
             string commitsDir = Path.Combine(raspDir, "commits");
             string indexFile = Path.Combine(raspDir, "index.json");
             string configFile = Path.Combine(raspDir, "config.json");
+            string branchDir = Path.Combine(Directory.GetCurrentDirectory(), $".rasp/branches/main");
 
             if ( Directory.Exists(raspDir) ) {
                 RaspUtils.DisplayMessage("Error: Rasp repository already initialized.", Color.Red);
@@ -26,9 +28,11 @@ namespace Rasp {
             config["remote"] = "local";
             config["author"] = "guest";
             config["email"] = "unknown";
+            config["branch"] = "main";
 
             try {
                 Directory.CreateDirectory(commitsDir);
+                Directory.CreateDirectory(branchDir);
 
                 if ( !File.Exists(indexFile) )
                     File.WriteAllText(indexFile, "{}");
@@ -42,6 +46,48 @@ namespace Rasp {
             }
         }
 
+    }
+
+    public class BranchCommand : ICommand {
+        public string Usage => $"{Commands.rasp} {Commands._branch} <branch>";
+        public void Execute( string[] args ) {
+            if ( args.Length != 2 ) {
+                Console.WriteLine("Usage: " + Usage);
+                return;
+            }
+            string branch = args[1];
+            string indexFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/index.json");
+            string configFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/config.json");
+            if ( !File.Exists(indexFile) || !File.Exists(configFile) ) {
+                RaspUtils.DisplayMessage("Error: Rasp repository not initialized. Run 'rasp init' first.", Color.Red);
+                return;
+            }
+
+            Dictionary<string, string> config = RaspUtils.LoadJson<string>(configFile)!;
+            if ( config["branch"] == branch) {
+                RaspUtils.DisplayMessage($"Warning: Already in ({branch}) branch", Color.Yellow);
+                return;
+            }
+            try {
+
+                string branchDir = Path.Combine(Directory.GetCurrentDirectory(), $".rasp/branches/{branch}");
+                if ( !Directory.Exists(branchDir) ) {
+                    Directory.CreateDirectory(branchDir);
+                    string[] files = Directory.GetFiles(Directory.GetCurrentDirectory());
+                    foreach ( string source in files ) {
+                        string destination = Path.Combine(branchDir, source);
+                        RaspUtils.SafeFileCopy(source, destination);
+                    }  
+                }
+
+                config["branch"] = branch;
+                RaspUtils.SaveJson(configFile, config);
+                RaspUtils.DisplayMessage($"Switched to branch '{branch}'.", Color.Green);
+
+            } catch (Exception ex){
+                RaspUtils.DisplayMessage($"Error: {ex.Message}", Color.Red);
+            }
+        }
     }
 
     public class AddCommand : ICommand {
@@ -102,28 +148,30 @@ namespace Rasp {
 
             string message = args[2];
             string indexFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/index.json");
-            string commitsDir = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/commits");
             string configFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/config.json");
-            string historyFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/commits/.history.json");
 
             try {
 
                 Dictionary<string, Dictionary<string, string>>? index = RaspUtils.LoadJson<Dictionary<string,string>>(indexFile);
                 Dictionary<string, string>? config = RaspUtils.LoadJson<string>(configFile);
-                Dictionary<string, string>? history = RaspUtils.LoadJson<string>(historyFile);
 
-                if (history != null) {
-                    File.WriteAllText(historyFile, "{}");
-                }
-                if (config == null ) {
+                if ( config == null ) {
                     RaspUtils.DisplayMessage("Error: Config file is missing or corrupted.", Color.Red);
                     return;
                 }
 
+                string commitsDir = Path.Combine(Directory.GetCurrentDirectory(), $".rasp/branches/{config["branch"]}/commits");
                 using Stream stream = new MemoryStream(Encoding.UTF8.GetBytes($"{config["author"]} {message} {DateTime.Now}"));
                 string hash = RaspUtils.ComputeHashCode(stream);
                 string hashDir = Path.Combine(commitsDir, hash);
                 Directory.CreateDirectory(hashDir);
+
+                string historyFile = Path.Combine(Directory.GetCurrentDirectory(), $".rasp/branches/{config["branch"]}/commits/.history.json");
+                Dictionary<string, string>? history = RaspUtils.LoadJson<string>(historyFile);
+
+                if ( history != null ) {
+                    File.WriteAllText(historyFile, "{}");
+                }
 
                 List<string> filesList = [];
                 int count = 0;
@@ -191,10 +239,12 @@ namespace Rasp {
                 Console.WriteLine("Usage: " + Usage);
                 return;
             }
-
-            string historyFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/commits/.history.json");
-            string commitsDir = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/commits");
+            string configFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/config.json");
             string indexFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/index.json");
+
+            Dictionary<string, string> config = RaspUtils.LoadJson<string>(configFile);
+            string commitsDir = Path.Combine(Directory.GetCurrentDirectory(), $".rasp/branches/{config["branch"]}/commits");
+            string historyFile = Path.Combine(Directory.GetCurrentDirectory(), $".rasp/branches/{config["branch"]}/commits/.history.json");
 
             if ( !File.Exists(historyFile) ) {
                 RaspUtils.DisplayMessage("Warning: No commits to rollback.", Color.Yellow);
@@ -250,7 +300,7 @@ namespace Rasp {
                             File.Copy(sourceFile, backupFile, true);
                         }
                     }
-                    RaspUtils.DisplayMessage($"Backup created at: {backupDir}", Color.Green);
+                    Console.WriteLine($"Backup created at: {backupDir}");
                 }
 
                 Console.WriteLine("Restoring files...");
@@ -260,7 +310,7 @@ namespace Rasp {
 
                     if ( File.Exists(sourceFile) ) {
                         RaspUtils.SafeFileCopy(sourceFile, destinationFile);
-                        RaspUtils.DisplayMessage($" |- Restored: {file}", Color.Green);
+                        Console.WriteLine($" |- Restored: {file}");
                         index![file]["status"] = "tracked";
                     } else {
                         RaspUtils.DisplayMessage($" |- Warning: File {file} missing in commit {lastCommitHash}", Color.Yellow);
