@@ -1,11 +1,11 @@
-﻿using LibGit2Sharp;
-
+﻿
 namespace Rasp {
     public static class Commands {
 
         public const string rasp = "rasp";
         public const string display = "display";
         public const string _displayMessage = "-dm";
+        public const string set = "set";
 
         // Flags
         public const string help = "--help";
@@ -154,28 +154,5 @@ For more information, use '{Commands.help}' or '{Commands._help}'.
     }
 
 
-    public class CloneCommand : ICommand {
-
-        private readonly int usernameIndex = 1;
-        private readonly int repositoryIndex = 2;
-        private readonly int directoryIndex = 3;
-        public string Usage => $"{Commands.rasp} {Commands.clone} <username> <repository-name> <directory>";
-
-        public void Execute( string[] args ) {
-            if ( args.Length < 3 ) {
-                Console.WriteLine("Usage: " + Usage);
-                return;
-            }
-
-            string url = $"https://github.com/{args[usernameIndex]}/{args[repositoryIndex]}.git";
-            string directory = ( args.Length > directoryIndex ) ? args[directoryIndex] : Directory.GetCurrentDirectory();
-
-            try {
-                Repository.Clone(url, directory);
-                Console.WriteLine($"Repository cloned successfully from '{url}' to '{Path.GetFullPath(directory)}'");
-            } catch ( Exception ex ) {
-                Console.WriteLine($"Error: {ex.Message}");
-            }
-        }
-    }  
+      
 }

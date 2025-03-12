@@ -1,5 +1,7 @@
-﻿using LibGit2Sharp;
+﻿using Azure.Storage.Blobs;
+using LibGit2Sharp;
 using Newtonsoft.Json;
+using System.IO;
 using System.Text;
 
 namespace Rasp {
@@ -17,7 +19,8 @@ namespace Rasp {
             string commitsDir = Path.Combine(raspDir, "commits");
             string indexFile = Path.Combine(raspDir, "index.json");
             string configFile = Path.Combine(raspDir, "config.json");
-            string branchDir = Path.Combine(Directory.GetCurrentDirectory(), $".rasp/branches/main");
+            string hashFilePath = Path.Combine(raspDir, "hash.json");
+            string branchDir = Path.Combine(raspDir, $"branches/main");
 
             if ( Directory.Exists(raspDir) ) {
                 RaspUtils.DisplayMessage("Error: Rasp repository already initialized.", Color.Red);
@@ -33,12 +36,15 @@ namespace Rasp {
             try {
                 Directory.CreateDirectory(commitsDir);
                 Directory.CreateDirectory(branchDir);
-
+                
                 if ( !File.Exists(indexFile) )
                     File.WriteAllText(indexFile, "{}");
 
                 if ( !File.Exists(configFile) )
                     File.WriteAllText(configFile, JsonConvert.SerializeObject(config, Formatting.Indented));
+
+                if ( !File.Exists(hashFilePath) )
+                    File.WriteAllText(hashFilePath, "{}");
 
                 RaspUtils.DisplayMessage("Initialized Rasp in the current directory.", Color.Green);
             } catch ( Exception ex ) {
@@ -91,7 +97,7 @@ namespace Rasp {
     }
 
     public class AddCommand : ICommand {
-        public string Usage => $"{Commands.rasp} {Commands.add} <file>";
+        public string Usage => $"{Commands.rasp} {Commands.add} <file/directory>";
 
         public void Execute( string[] args ) {
             if ( args.Length < 2 ) {
@@ -99,42 +105,55 @@ namespace Rasp {
                 return;
             }
 
-            string filePath = Path.Combine(Directory.GetCurrentDirectory(), args[1]);
-            string indexFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/index.json");
+            string currentDir = Directory.GetCurrentDirectory();
+            string indexFilePath = Path.Combine(currentDir, ".rasp/index.json");
 
-            if ( !Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), ".rasp")) ) {
+            if ( !Directory.Exists(Path.Combine(currentDir, ".rasp")) ) {
                 RaspUtils.DisplayMessage("Error: Rasp repository not initialized. Run 'rasp init' first.", Color.Red);
                 return;
             }
 
-            if ( !File.Exists(filePath) ) {
-                RaspUtils.DisplayMessage($"Error: File '{filePath}' not found.", Color.Red);
+            // Load existing index or create a new one
+            var index = RaspUtils.LoadJson<Dictionary<string, string>>(indexFilePath);
+
+            List<string> filesToAdd = [];
+            string targetPath = Path.Combine(currentDir, args[1]);
+
+            if ( Directory.Exists(targetPath) ) {
+                filesToAdd.AddRange(Directory.GetFiles(targetPath, "*", SearchOption.AllDirectories));
+            } else if ( File.Exists(targetPath) ) {
+                filesToAdd.Add(targetPath);
+            } else {
+                RaspUtils.DisplayMessage($"Error: '{args[1]}' does not exist.", Color.Red);
                 return;
             }
+            int addedCount = 0, failedCount = 0;
 
-            using FileStream stream = File.OpenRead(filePath);
-            string fileHash = RaspUtils.ComputeHashCode(stream);
-            string relativePath = Path.GetRelativePath(Directory.GetCurrentDirectory(), filePath);
-            Dictionary<string, Dictionary<string, string>>? index = RaspUtils.LoadJson<Dictionary<string,string>>(indexFile);
+            foreach ( string filePath in filesToAdd ) {
+                try {
+                    string relativePath = Path.GetRelativePath(currentDir, filePath);
 
-            if( index == null ) {
-                RaspUtils.DisplayMessage("Error: Index file is missing or corrupted.", Color.Red);
-                return;
+                    if ( index.TryGetValue(relativePath, out var existingEntry) && existingEntry["status"] == "tracked" ) {
+                        continue;
+                    }
+
+                    using FileStream stream = File.OpenRead(filePath);
+                    string fileHash = RaspUtils.ComputeHashCode(stream);
+
+                    index[relativePath] = new Dictionary<string, string> {
+                        { "hash", fileHash },
+                        { "status", "tracked" }
+                    };
+                    addedCount++;
+                } catch {
+                    failedCount++;
+                }
             }
-
-            Dictionary<string, string> data = new() {
-                { "hash", fileHash },
-                { "status", "tracked" }
-            };
-
-            if ( data != null ) {
-                index[relativePath] = data;
-            }
-
-            RaspUtils.SaveJson(indexFile, index!);
-            RaspUtils.DisplayMessage($"Added '{relativePath}' to staging.", Color.Green);
+            RaspUtils.SaveJson(indexFilePath, index);
+            RaspUtils.DisplayMessage($"Add operation completed: {addedCount} added, {failedCount} failed.", Color.Yellow);
         }
     }
+
 
 
     public class CommitCommand : ICommand {

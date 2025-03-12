@@ -33,6 +33,7 @@ namespace Rasp {
             { Commands._version,  new VersionCommand() },
             { Commands.version,  new VersionCommand() },
             { Commands._branch, new BranchCommand() },
+            { Commands.set, new SetCommand() }
         };
 
         private static List<string> repoCommands = new() {
@@ -101,7 +102,9 @@ namespace Rasp {
                                     .Select(m => m.Value.Trim('"'))
                                     ];
                 if ( args[commandIndex] == Commands.rasp ) {
-                    string[] newArgs = [.. args.Where(arg => arg != "rasp")];
+                    List<string> temp = [.. args];
+                    temp.RemoveAt(commandIndex);
+                    string[] newArgs = [.. temp];
 
                     if ( newArgs.Length == 0 ) {
                         ShowHelp(newArgs);

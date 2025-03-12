@@ -5,7 +5,7 @@ namespace Rasp {
     public static class RaspUtils {
         public static Dictionary<string, T> LoadJson<T>( string path ) {
             return File.Exists(path)
-                ? JsonConvert.DeserializeObject<Dictionary<string, T>>(File.ReadAllText(path)) ?? new Dictionary<string, T>()
+                ? JsonConvert.DeserializeObject<Dictionary<string, T>>(File.ReadAllText(path)) ?? []
                 : [];
         }
 
