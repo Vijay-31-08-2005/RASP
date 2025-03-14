@@ -1,5 +1,6 @@
-﻿using LibGit2Sharp;
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
+using System.Diagnostics;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Rasp {
@@ -32,11 +33,12 @@ namespace Rasp {
             { Commands.status, new StatusCommand() },
             { Commands._version,  new VersionCommand() },
             { Commands.version,  new VersionCommand() },
-            { Commands._branch, new BranchCommand() },
-            { Commands.set, new SetCommand() }
+            { Commands.branch, new BranchCommand() },
+            { Commands.set, new SetCommand() },
+            { Commands.checkout, new CheckoutCommand() }
         };
 
-        private static List<string> repoCommands = new() {
+        private readonly static List<string> repoCommands = [
             Commands.drop,
             Commands.add,
             Commands.commit,
@@ -45,18 +47,18 @@ namespace Rasp {
             Commands._rollback, 
             Commands.rollback, 
             Commands.status,  
-            Commands._branch,
+            Commands.branch,
             Commands.logs,
-        };
+        ];
 
         private static void Main( string[] args ) {
 
-            if( args.Length == 0 ) {
+            if ( args.Length == 0 ) {
                 ShowHelp(args);
             }
 
-            if ( repoCommands.Contains(args[commandIndex]) ) {
-                RaspUtils.DisplayMessage("Error: Initialize the Rasp repository", Color.Red);
+            if ( repoCommands.Contains(args[commandIndex]) && args[commandIndex] != Commands.init ) {
+                RaspUtils.DisplayMessage("Error: Initialize the Rasp repository first using 'rasp init'.", Color.Red);
                 return;
             }
 
@@ -67,7 +69,7 @@ namespace Rasp {
 
             do {
                 if ( Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), ".rasp")) ) {
-                    string configFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/config.json");
+                    string configFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "rasp/config.json");
                     Dictionary<string, string> config = RaspUtils.LoadJson<string>(configFile);
                     string? branch = config["branch"];
                     Console.Write($"{Directory.GetCurrentDirectory()}:");
@@ -94,13 +96,12 @@ namespace Rasp {
                     if ( !Directory.Exists(Path.Combine(Directory.GetCurrentDirectory(), ".rasp")) ) {
                         break;
                     }
-                    continue; 
+                    continue;
                 }
                 if ( input == Commands.esc ) break;
                 args = input.Split(' ');
-                args = [.. Regex.Matches(input, @"[\""].+?[\""]|[^ ]+")
-                                    .Select(m => m.Value.Trim('"'))
-                                    ];
+                args = [.. Regex.Matches(input, @"[\""].+?[\""]|[^ ]+").Select(m => m.Value.Trim('"'))];
+
                 if ( args[commandIndex] == Commands.rasp ) {
                     List<string> temp = [.. args];
                     temp.RemoveAt(commandIndex);
@@ -112,11 +113,44 @@ namespace Rasp {
                     }
                     ExecuteCommand(newArgs);
                 } else {
-                    RaspUtils.DisplayMessage($"Error: Unknown command '{args[commandIndex]}'. See '{Commands.rasp} {Commands.help}'.", Color.Red);
+                    ExecuteExternalCommand(args);
                 }
-
-            } while ( true );
+            } while (true);
         }
+
+        private static void ExecuteExternalCommand( string[] args ) {
+
+            StringBuilder sb = new();
+            foreach ( string str in args ) {
+                sb.Append(str);
+                sb.Append(' ');
+            }
+
+            string command = sb.ToString();
+
+            ProcessStartInfo psi = new() {
+                FileName = Environment.OSVersion.Platform == PlatformID.Win32NT ? "cmd.exe" : "bash",
+                Arguments = Environment.OSVersion.Platform == PlatformID.Win32NT ? $"/c {command}" : $"-c \"{command}\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            Process process = new() { StartInfo = psi };
+            process.Start();
+
+            string output = process.StandardOutput.ReadToEnd();
+            string error = process.StandardError.ReadToEnd();
+
+            process.WaitForExit();
+
+            if ( !string.IsNullOrEmpty(output) )
+                Console.WriteLine(output);
+            if ( !string.IsNullOrEmpty(error) )
+                RaspUtils.DisplayMessage($"Error: {error}", Color.Red);
+        }
+
 
         private static void ExecuteCommand( string[] args) {
             string command = args[commandIndex];

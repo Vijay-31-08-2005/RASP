@@ -1,7 +1,4 @@
-﻿using Azure.Storage.Blobs;
-using LibGit2Sharp;
-using Newtonsoft.Json;
-using System.IO;
+﻿using Newtonsoft.Json;
 using System.Text;
 
 namespace Rasp {
@@ -16,11 +13,12 @@ namespace Rasp {
             }
 
             string raspDir = Path.Combine(Directory.GetCurrentDirectory(), ".rasp");
-            string commitsDir = Path.Combine(raspDir, "commits");
-            string indexFile = Path.Combine(raspDir, "index.json");
-            string configFile = Path.Combine(raspDir, "config.json");
-            string hashFilePath = Path.Combine(raspDir, "hash.json");
-            string branchDir = Path.Combine(raspDir, $"branches/main");
+            string configFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "rasp/config.json");
+            string main = Path.Combine(raspDir, "branches/main");
+            string branchesFile = Path.Combine(raspDir, $"branches/branches.json");
+            string indexFile = Path.Combine(main, "index.json");
+            string commitsDir = Path.Combine(main, "commits");
+
 
             if ( Directory.Exists(raspDir) ) {
                 RaspUtils.DisplayMessage("Error: Rasp repository already initialized.", Color.Red);
@@ -28,73 +26,171 @@ namespace Rasp {
             }
 
             Dictionary<string, string> config = [];
-            config["remote"] = "local";
             config["author"] = "guest";
             config["email"] = "unknown";
             config["branch"] = "main";
 
+            Dictionary<string, HashSet<string>> set = new() {
+                { "branches" , new HashSet<string> { "main" } } 
+            };
+
             try {
+                Directory.CreateDirectory(main);
                 Directory.CreateDirectory(commitsDir);
-                Directory.CreateDirectory(branchDir);
-                
+
                 if ( !File.Exists(indexFile) )
                     File.WriteAllText(indexFile, "{}");
 
                 if ( !File.Exists(configFile) )
-                    File.WriteAllText(configFile, JsonConvert.SerializeObject(config, Formatting.Indented));
+                    RaspUtils.SaveJson(configFile, config);
 
-                if ( !File.Exists(hashFilePath) )
-                    File.WriteAllText(hashFilePath, "{}");
+                if ( !File.Exists(branchesFile) ) {
+                    RaspUtils.SaveJson(branchesFile, set);
+                }
 
                 RaspUtils.DisplayMessage("Initialized Rasp in the current directory.", Color.Green);
             } catch ( Exception ex ) {
                 RaspUtils.DisplayMessage($"Error: {ex.Message}", Color.Red);
             }
         }
-
     }
 
     public class BranchCommand : ICommand {
-        public string Usage => $"{Commands.rasp} {Commands._branch} <branch>";
+        public string Usage => $"{Commands.rasp} {Commands.branch} <branch>";
+
         public void Execute( string[] args ) {
             if ( args.Length != 2 ) {
                 Console.WriteLine("Usage: " + Usage);
                 return;
             }
+
             string branch = args[1];
-            string indexFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/index.json");
-            string configFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/config.json");
-            if ( !File.Exists(indexFile) || !File.Exists(configFile) ) {
-                RaspUtils.DisplayMessage("Error: Rasp repository not initialized. Run 'rasp init' first.", Color.Red);
+            string configFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "rasp/config.json");
+            string branchesDir = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/branches");
+            string branchFile = Path.Combine(branchesDir, "branches.json");
+            string branchDir = Path.Combine(branchesDir, branch);
+
+
+            Dictionary<string, HashSet<string>> branches = RaspUtils.LoadJson<HashSet<string>>(branchFile) ?? new Dictionary<string, HashSet<string>>() {
+                { "branches", new HashSet<string>() }
+            };
+
+            Dictionary<string, string>? config = RaspUtils.LoadJson<string>(configFile);
+            if ( config == null || !config.TryGetValue("branch", out string? currentBranch) ) {
+                RaspUtils.DisplayMessage("Error: No active branch found. Initialize repository first.", Color.Red);
+                return;
+            }
+            string currentBranchDir = Path.Combine(branchesDir, currentBranch);
+
+            if ( !branches["branches"].Add(branch) ) {
+                RaspUtils.DisplayMessage("Error: Branch already exists.", Color.Red);
                 return;
             }
 
-            Dictionary<string, string> config = RaspUtils.LoadJson<string>(configFile)!;
-            if ( config["branch"] == branch) {
-                RaspUtils.DisplayMessage($"Warning: Already in ({branch}) branch", Color.Yellow);
-                return;
-            }
             try {
+                Directory.CreateDirectory(branchDir);
 
-                string branchDir = Path.Combine(Directory.GetCurrentDirectory(), $".rasp/branches/{branch}");
-                if ( !Directory.Exists(branchDir) ) {
-                    Directory.CreateDirectory(branchDir);
-                    string[] files = Directory.GetFiles(Directory.GetCurrentDirectory());
-                    foreach ( string source in files ) {
-                        string destination = Path.Combine(branchDir, source);
-                        RaspUtils.SafeFileCopy(source, destination);
-                    }  
+                if ( Directory.Exists(currentBranchDir) ) {
+                    foreach ( var file in Directory.GetFiles(currentBranchDir, "*", SearchOption.AllDirectories) ) {
+                        string filePath = Path.GetRelativePath(currentBranchDir, file);
+                        RaspUtils.SafeFileCopy(file, Path.Combine(branchDir, filePath));
+                    }
+                } else {
+                    RaspUtils.DisplayMessage($"Warning: Current branch '{currentBranch}' has no directory. Creating empty branch.", Color.Yellow);
                 }
 
-                config["branch"] = branch;
-                RaspUtils.SaveJson(configFile, config);
-                RaspUtils.DisplayMessage($"Switched to branch '{branch}'.", Color.Green);
-
-            } catch (Exception ex){
+                RaspUtils.DisplayMessage($"Branch '{branch}' successfully created.", Color.Green);
+            } catch ( Exception ex ) {
+                branches["branches"].Remove(branch);
                 RaspUtils.DisplayMessage($"Error: {ex.Message}", Color.Red);
             }
+
+            RaspUtils.SaveJson(branchFile, branches);
         }
     }
+
+
+    public class CheckoutCommand : ICommand {
+        public string Usage => $"{Commands.rasp} {Commands.checkout} <branch>";
+
+        public void Execute( string[] args ) {
+            if ( args.Length != 2 ) {
+                Console.WriteLine("Usage: " + Usage);
+                return;
+            }
+
+            string branch = args[1];
+            string configFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "rasp/config.json");
+            string branchFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/branches/branches.json");
+
+            Dictionary<string, HashSet<string>>? branches = RaspUtils.LoadJson<HashSet<string>>(branchFile) ?? new Dictionary<string, HashSet<string>>() {
+                { "branches", new HashSet<string>() }
+            };
+
+            if ( !branches["branches"].Contains(branch) ) {
+                RaspUtils.DisplayMessage($"Error: Branch '{branch}' does not exist.", Color.Red);
+                return;
+            }
+
+            if ( !File.Exists(configFile) ) {
+                RaspUtils.DisplayMessage($"Error: Config file '{configFile}' is missing.", Color.Red);
+                return;
+            }
+
+            Dictionary<string, string>? config = RaspUtils.LoadJson<string>(configFile);
+            if ( config == null || !config.TryGetValue("branch", out string? currentBranch) ) {
+                RaspUtils.DisplayMessage("Error: No active branch found. Initialize repository first.", Color.Red);
+                return;
+            }
+
+            if ( currentBranch == branch ) {
+                RaspUtils.DisplayMessage($"Warning: Already in '{branch}' branch.", Color.Yellow);
+                return;
+            }
+
+            string newIndexFile = Path.Combine(Directory.GetCurrentDirectory(), $".rasp/branches/{branch}/index.json");
+            string currentIndexFile = Path.Combine(Directory.GetCurrentDirectory(), $".rasp/branches/{currentBranch}/index.json");
+            if ( !File.Exists(newIndexFile) ) {
+                RaspUtils.DisplayMessage($"Warning: No index found for branch '{branch}'.", Color.Yellow);
+            } else if ( !File.Exists(currentIndexFile) ) {
+                RaspUtils.DisplayMessage($"Warning: No index found for branch '{currentBranch}'.", Color.Yellow);
+            } else {
+                Dictionary<string, Dictionary<string, string>>? newIndex = RaspUtils.LoadJson<Dictionary<string, string>>(newIndexFile);
+                Dictionary<string, Dictionary<string, string>>? currentIndex = RaspUtils.LoadJson<Dictionary<string, string>>(currentIndexFile);
+                if ( newIndex == null ) {
+                    RaspUtils.DisplayMessage($"Error: Index file '{newIndexFile}' is corrupted.", Color.Red);
+                    return;
+                } else if ( currentIndexFile == null ) {
+                    RaspUtils.DisplayMessage($"Error: Index file '{currentBranch}' is corrupted.", Color.Red);
+                    return;
+                }
+
+                    bool hasUncommittedChanges = currentIndex.Values.Any(file => file["status"] != "committed");
+                if ( hasUncommittedChanges ) {
+                    RaspUtils.DisplayMessage("Warning: You have uncommitted changes. Switching branches may overwrite your work.", Color.Yellow);
+                    Console.Write("Do you want to continue? (yes/no): ");
+                    string? response = Console.ReadLine()?.Trim().ToLower();
+                    if ( response != "yes" ) {
+                        RaspUtils.DisplayMessage("Branch switch aborted.", Color.Yellow);
+                        return;
+                    }
+                }
+
+                foreach ( var entry in newIndex ) {
+                    if ( entry.Value["status"] == "committed" ) {
+                        string source = Path.Combine(Directory.GetCurrentDirectory(), $".rasp/branches/{branch}/commits/{entry.Value["lastCommit"]}/{entry.Key}");
+                        string destination = Path.Combine(Directory.GetCurrentDirectory(), entry.Key);
+                        RaspUtils.SafeFileCopy(source, destination);
+                    }
+                }
+            }
+
+            config["branch"] = branch;
+            RaspUtils.SaveJson(configFile, config);
+            RaspUtils.DisplayMessage($"Switched to branch '{branch}'.", Color.Green);
+        }
+    }
+
 
     public class AddCommand : ICommand {
         public string Usage => $"{Commands.rasp} {Commands.add} <file/directory>";
@@ -106,15 +202,22 @@ namespace Rasp {
             }
 
             string currentDir = Directory.GetCurrentDirectory();
-            string indexFilePath = Path.Combine(currentDir, ".rasp/index.json");
+            string configFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "rasp/config.json");
+
+            if ( !File.Exists(configFile) ) {
+                RaspUtils.DisplayMessage($"Error: Config file {configFile} is missing", Color.Red);
+                return;
+            }
+
+            Dictionary<string, string> config = RaspUtils.LoadJson<string>(configFile)!;
+            string indexFile = Path.Combine(Directory.GetCurrentDirectory(), $".rasp/branches/{config["branch"]}/index.json");
 
             if ( !Directory.Exists(Path.Combine(currentDir, ".rasp")) ) {
                 RaspUtils.DisplayMessage("Error: Rasp repository not initialized. Run 'rasp init' first.", Color.Red);
                 return;
             }
 
-            // Load existing index or create a new one
-            var index = RaspUtils.LoadJson<Dictionary<string, string>>(indexFilePath);
+            var index = RaspUtils.LoadJson<Dictionary<string, string>>(indexFile);
 
             List<string> filesToAdd = [];
             string targetPath = Path.Combine(currentDir, args[1]);
@@ -149,7 +252,7 @@ namespace Rasp {
                     failedCount++;
                 }
             }
-            RaspUtils.SaveJson(indexFilePath, index);
+            RaspUtils.SaveJson(indexFile, index);
             RaspUtils.DisplayMessage($"Add operation completed: {addedCount} added, {failedCount} failed.", Color.Yellow);
         }
     }
@@ -166,19 +269,17 @@ namespace Rasp {
             }
 
             string message = args[2];
-            string indexFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/index.json");
-            string configFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/config.json");
+            string configFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "rasp/config.json");
 
             try {
 
-                Dictionary<string, Dictionary<string, string>>? index = RaspUtils.LoadJson<Dictionary<string,string>>(indexFile);
                 Dictionary<string, string>? config = RaspUtils.LoadJson<string>(configFile);
-
                 if ( config == null ) {
                     RaspUtils.DisplayMessage("Error: Config file is missing or corrupted.", Color.Red);
                     return;
                 }
-
+                string indexFile = Path.Combine(Directory.GetCurrentDirectory(), $".rasp/branches/{config["branch"]}/index.json");
+                Dictionary<string, Dictionary<string, string>>? index = RaspUtils.LoadJson<Dictionary<string,string>>(indexFile);
                 string commitsDir = Path.Combine(Directory.GetCurrentDirectory(), $".rasp/branches/{config["branch"]}/commits");
                 using Stream stream = new MemoryStream(Encoding.UTF8.GetBytes($"{config["author"]} {message} {DateTime.Now}"));
                 string hash = RaspUtils.ComputeHashCode(stream);
@@ -213,6 +314,7 @@ namespace Rasp {
 
                             RaspUtils.SafeFileCopy(source, destination);
                             filesList.Add(relativePath);
+                            entry.Value["lastCommit"] = hash;
                             entry.Value["status"] = "committed";
                         }
                     }
@@ -258,10 +360,11 @@ namespace Rasp {
                 Console.WriteLine("Usage: " + Usage);
                 return;
             }
-            string configFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/config.json");
-            string indexFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/index.json");
+
+            string configFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "rasp/config.json");
 
             Dictionary<string, string> config = RaspUtils.LoadJson<string>(configFile);
+            string indexFile = Path.Combine(Directory.GetCurrentDirectory(), $".rasp/{config["branch"]}index.json");
             string commitsDir = Path.Combine(Directory.GetCurrentDirectory(), $".rasp/branches/{config["branch"]}/commits");
             string historyFile = Path.Combine(Directory.GetCurrentDirectory(), $".rasp/branches/{config["branch"]}/commits/.history.json");
 
@@ -370,6 +473,7 @@ namespace Rasp {
             Dictionary<string, Dictionary<string, string>>? index = RaspUtils.LoadJson<Dictionary<string, string>>(indexFile);
             List<string> stagedList = [];
             List<string> committedList = [];
+            List<string> untrackedList = [];
 
             if ( index == null ) {
                 RaspUtils.DisplayMessage("Error: Index file is missing or corrupted.", Color.Red);
@@ -386,6 +490,13 @@ namespace Rasp {
                 }
             }
 
+            foreach(var file in Directory.GetFiles(Directory.GetCurrentDirectory(), "*", SearchOption.AllDirectories) ) {
+                string relativePath = Path.GetRelativePath(Directory.GetCurrentDirectory(), file);
+                if ( !index.ContainsKey(relativePath) ) {
+                    untrackedList.Add(relativePath);
+                }
+            }
+
             Console.WriteLine("Staging area:");
             RaspUtils.DisplayMessage($" Staged: {stagedList.Count}", Color.Yellow);
             foreach ( var staged in stagedList ) {
@@ -395,6 +506,11 @@ namespace Rasp {
             RaspUtils.DisplayMessage($" Committed: {committedList.Count}", Color.Green);
             foreach ( var committed in committedList ) {
                 Console.WriteLine($" |- {committed}");
+            }
+
+            RaspUtils.DisplayMessage($" Untracked: {untrackedList.Count}", Color.Red);
+            foreach ( var untracked in untrackedList ) {
+                Console.WriteLine($" |- {untracked}");
             }
 
         }
@@ -473,8 +589,11 @@ namespace Rasp {
                 Console.WriteLine("Usage: " + Usage);
                 return;
             }
-            string commitsDir = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/commits");
-            string historyFile = Path.Combine(Directory.GetCurrentDirectory(), ".rasp/commits/.history.json");
+            string configFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "rasp/config.json");
+            Dictionary<string, string> config = RaspUtils.LoadJson<string>(configFile)!;
+            string commitsDir = Path.Combine(Directory.GetCurrentDirectory(), $".rasp/branches/{config["branch"]}/commits");
+            string historyFile = Path.Combine(commitsDir, ".history.json");
+
             if ( !File.Exists(historyFile) ) {
                 RaspUtils.DisplayMessage($"Warning: No commits found.", Color.Yellow);
                 return;
@@ -484,7 +603,9 @@ namespace Rasp {
                 RaspUtils.DisplayMessage($"Warning: No commits found.", Color.Yellow);
                 return;
             }
+
             foreach ( var commit in history ) {
+
                 string hash = commit.Value;
                 string hashDir = Path.Combine(commitsDir, hash);
                 string commitFile = Path.Combine(hashDir, "commit.json");
@@ -496,7 +617,7 @@ namespace Rasp {
                     return;
                 }
 
-                var commitData = RaspUtils.LoadJson<Dictionary<string, object>>(commitFile);
+                var commitData = RaspUtils.LoadJson<object>(commitFile);
                 if ( commitData == null ) {
                     RaspUtils.DisplayMessage($"Error: Commit {hash} data is missing or corrupted.", Color.Red);
                     return;
@@ -522,7 +643,7 @@ namespace Rasp {
             }
             string raspDirectory = Path.Combine(Directory.GetCurrentDirectory(), ".rasp");
 
-            if ( !File.Exists(Path.Combine(raspDirectory, "config.json")) ) {
+            if ( !Directory.Exists(Path.Combine(raspDirectory, "branches/main")) ) {
                 RaspUtils.DisplayMessage("Error: The detected '.rasp' folder does not contain a valid Rasp repository.", Color.Red);
                 return;
             }
