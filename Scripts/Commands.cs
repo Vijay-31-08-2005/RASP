@@ -1,5 +1,4 @@
-﻿
-namespace Rasp {
+﻿namespace Rasp {
     public static class Commands {
 
         public const string rasp = "rasp";
@@ -13,10 +12,11 @@ namespace Rasp {
         public const string version = "--version";
         public const string _version = "-v";
         public const string info = "info";
-        public const string logs = "logs";
+        public const string history = "history";
         public const string status = "status";
         public const string rollback = "rollback";
         public const string _rollback = "-rb";
+        public const string logs = "logs";
 
         public const string move = "move";
         public const string delete = "delete";
@@ -32,11 +32,13 @@ namespace Rasp {
         public const string commit = "commit";
         public const string _message = "-m"; 
         public const string revert = "revert";
-        public const string _profile = "-p";
+        public const string _profile = "-pro";
         public const string drop = "drop";
         public const string branch = "branch";
         public const string checkout = "checkout";
-        public const string esc = "/esc";
+        public const string _out = "-o";
+        public const string _in = "-i";
+        public const string merge = "merge";
     }
 
     public interface ICommand {

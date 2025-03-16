@@ -17,10 +17,10 @@ namespace Rasp {
             string path = Directory.GetCurrentDirectory();
             string containerName = SanitizeContainerName(Path.GetFileName(path));
             string indexFile = Path.Combine(path, ".rasp/index.json");
-            string azStorage = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "rasp/azStorage.json");
+            string azConfigFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "rasp/azConfig.json");
 
-            if( !File.Exists(azStorage) ) {
-                RaspUtils.DisplayMessage($"Error: Storage file {azStorage} is missing.", Color.Red);
+            if( !File.Exists(azConfigFile) ) {
+                RaspUtils.DisplayMessage($"Error: Storage file {azConfigFile} is missing.", Color.Red);
                 return;
             }
 
@@ -28,15 +28,15 @@ namespace Rasp {
                 RaspUtils.DisplayMessage($"Error: Index file {indexFile} is missing.", Color.Red);
                 return;
             }
-            Dictionary<string,string> azDict = RaspUtils.LoadJson<string>(azStorage);
+            Dictionary<string,string> azConfig = RaspUtils.LoadJson<string>(azConfigFile);
             Dictionary<string, Dictionary<string, string>> index = RaspUtils.LoadJson<Dictionary<string, string>>(indexFile);
 
-            if ( azDict == null || azDict.Count == 0) {
+            if ( azConfig == null || azConfig.Count == 0) {
                 RaspUtils.DisplayMessage("Error: Could not load Connection string", Color.Red);
                 return;
             }
 
-            string connectionString = azDict["connectionString"];
+            string connectionString = azConfig["connectionString"];
 
             if ( index == null ) {
                 RaspUtils.DisplayMessage("Error: Could not load index.json", Color.Red);
@@ -109,19 +109,19 @@ namespace Rasp {
             Console.WriteLine("Fetching files from Azure Blob Storage...");
             string path = Directory.GetCurrentDirectory();
             string containerName = SanitizeContainerName(path);
-            string azStorage = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "rasp/azStorage.json");
+            string azConfigFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "rasp/azConfig.json");
 
-            if ( !File.Exists(azStorage) ) {
-                RaspUtils.DisplayMessage($"Error: Storage file {azStorage} is missing.", Color.Red);
+            if ( !File.Exists(azConfigFile) ) {
+                RaspUtils.DisplayMessage($"Error: Storage file {azConfigFile} is missing.", Color.Red);
                 return;
             }
-            Dictionary<string, string> azDict = RaspUtils.LoadJson<string>(azStorage);
-            if ( azDict == null || azDict.Count == 0 ) {
+            Dictionary<string, string> azConfig = RaspUtils.LoadJson<string>(azConfigFile);
+            if ( azConfig == null || azConfig.Count == 0 ) {
                 RaspUtils.DisplayMessage("Error: Could not load Connection string", Color.Red);
                 return;
             }
 
-            string connectionString = azDict["connectionString"];
+            string connectionString = azConfig["connectionString"];
 
 
             try {
@@ -172,20 +172,20 @@ namespace Rasp {
             }
 
             string path = Directory.GetCurrentDirectory();
-            string azStorage = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "rasp/azStorage.json");
-            if ( !File.Exists(azStorage) ) {
-                RaspUtils.DisplayMessage($"Error: Storage file {azStorage} is missing.", Color.Red); 
+            string azConfigFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "rasp/azConfig.json");
+            if ( !File.Exists(azConfigFile) ) {
+                RaspUtils.DisplayMessage($"Error: Storage file {azConfigFile} is missing.", Color.Red); 
                 return;
             }
 
-            Dictionary<string, string> storage = RaspUtils.LoadJson<string>(azStorage);
+            Dictionary<string, string> azConfig = RaspUtils.LoadJson<string>(azConfigFile);
 
-            if ( storage.Count == 0 ) {
+            if ( azConfig.Count == 0 ) {
                 RaspUtils.DisplayMessage($"Warning: connection string not setted.", Color.Yellow);
 
             }
 
-            string connectionString = storage["connectionString"];
+            string connectionString = azConfig["connectionString"];
             string containerName = args[0];
 
             Console.WriteLine($"Cloning all files from '{containerName}' container...");
@@ -212,9 +212,9 @@ namespace Rasp {
                     blobClient.DownloadTo(downloadStream);
 
                     Console.Write($"/r{blobItem.Name}");
+                    Console.Write("/r");
                     Thread.Sleep(500);
                 }
-
                 RaspUtils.DisplayMessage("All files downloaded successfully!", Color.Green);
             } catch ( Exception ex ) {
                 RaspUtils.DisplayMessage($"Download Failed: {ex.Message}", Color.Red);
@@ -232,7 +232,7 @@ namespace Rasp {
             }
 
             string appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "rasp");
-            string azStorage = Path.Combine(appDataPath, "azStorage.json");
+            string azConfigFile = Path.Combine(appDataPath, "azConfig.json");
 
             string connectionString = args[1];
 
@@ -245,15 +245,15 @@ namespace Rasp {
                 Directory.CreateDirectory(appDataPath);
             }
 
-            if ( !File.Exists(azStorage) ) {
-                File.WriteAllText(azStorage, "{}");
+            if ( !File.Exists(azConfigFile) ) {
+                File.WriteAllText(azConfigFile, "{}");
             }
 
             try {
-                var storage = RaspUtils.LoadJson<string>(azStorage);
-                storage["connectionString"] = connectionString;
+                var azConfig = RaspUtils.LoadJson<string>(azConfigFile);
+                azConfig["connectionString"] = connectionString;
 
-                RaspUtils.SaveJson(azStorage, storage);
+                RaspUtils.SaveJson(azConfigFile, azConfig);
                 RaspUtils.DisplayMessage("Connection String Saved", Color.Green);
             } catch ( IOException ioEx ) {
                 RaspUtils.DisplayMessage($"File Error: {ioEx.Message}", Color.Red);
@@ -269,9 +269,6 @@ namespace Rasp {
                                            .Select(pair => pair.Split('='))
                                            .Where(pair => pair.Length >= 2)
                                            .ToDictionary(pair => pair[0].Trim(), pair => pair[1].Trim());
-            foreach ( var key in keyPairs ) {
-                Console.WriteLine(key.Key +" "+ key.Value);
-            }
             return requiredKeys.All(key => keyPairs.ContainsKey(key));
         }
     }
