@@ -5,5 +5,4 @@
 
         public abstract void Info();
     }
-
 }

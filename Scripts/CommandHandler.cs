@@ -9,7 +9,9 @@ namespace Rasp {
 
         private static readonly Dictionary<string, ICommand> commands = new(StringComparer.OrdinalIgnoreCase) {
             { Commands.add, new AddCommand() },
+            { Commands.branch, new BranchCommand() },
             { Commands.clone, new CloneCommand() },
+            { Commands.checkout, new CheckoutCommand() },
             { Commands.commit, new CommitCommand() },
             { Commands._copy, new CopyCommand() },
             { Commands._delete, new DeleteCommand() },
@@ -19,6 +21,7 @@ namespace Rasp {
             { Commands.help, new HelpCommand() },
             { Commands.init, new InitCommand() },
             { Commands.history, new HistoryCommmand() },
+            { Commands.merge, new MergeCommand() },
             { Commands._move, new MoveCommand() },
             { Commands.pull, new PullCommand() },
             { Commands.push, new PushCommand() },
@@ -26,13 +29,10 @@ namespace Rasp {
             { Commands.revert, new RevertCommand() },
             { Commands._rollback, new RollbackCommand() },
             { Commands.rollback, new RollbackCommand() },
+            { Commands.set, new SetCommand() },
             { Commands.status, new StatusCommand() },
             { Commands._version, new VersionCommand() },
             { Commands.version, new VersionCommand() },
-            { Commands.branch, new BranchCommand() },
-            { Commands.set, new SetCommand() },
-            { Commands.checkout, new CheckoutCommand() },
-            { Commands.merge, new MergeCommand() },
         };
 
         private static readonly HashSet<string> repoCommands = [
@@ -145,7 +145,7 @@ namespace Rasp {
                     }
 
                     if ( newArgs[commandIndex] == Commands._out ) {
-                        RaspUtils.DisplayMessage("Shell mode diactivated", ConsoleColor.Green);
+                        RaspUtils.DisplayMessage("Shell mode deactivated", ConsoleColor.Green);
                         break;
                     }
 
