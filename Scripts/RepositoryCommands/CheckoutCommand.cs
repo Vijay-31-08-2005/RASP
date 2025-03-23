@@ -1,6 +1,4 @@
-﻿using static System.Runtime.InteropServices.JavaScript.JSType;
-
-namespace Rasp {
+﻿namespace Rasp {
     public class CheckoutCommand : ICommand {
         public string Usage => $"{Commands.checkout} <branch>";
 
