@@ -1,8 +1,6 @@
-# RASP - Remote Access Storage Pool
+# Rasp - Remote Access Storage Pool
 
-## Overview
-
-**Rasp** is a lightweight command-line tool designed for managing files and GitHub repositories efficiently. It allows users to move, copy, delete files, display messages, and clone repositories with simple commands.
+Rasp is a lightweight version control system designed for efficient local and remote file tracking. It allows developers to manage changes, commit updates, and integrate with Azure for cloud storage.
 
 ## Installation
 
@@ -33,74 +31,106 @@
    chmod +x /usr/local/bin/rasp
    ```
 
-Now you can use `rasp` globally.
+Now you can use `rasp` globally
 
 ## Usage
 
-Run the following command to see available options:
-
-```sh
-rasp --help
+```
+rasp <command> [options]
 ```
 
-### Commands
+### Available Commands
 
-| Command                                                                      | Description                               |
-| ---------------------------------------------------------------------------- | ----------------------------------------- |
-| `rasp display <message>`                                                     | Displays a custom message                 |
-| `rasp --help`                                                                 | Shows help information                    |
-| `rasp readme`                                                                | Displays the README                       |
-| `rasp --version`                                                             | Displays the version                      |
-| `rasp move <source> <destination>`                                           | Moves a file                              |
-| `rasp copy <source> <destination>`                                           | Copies a file                             |
-| `rasp delete <file>`                                                         | Deletes a file                            |
-| `rasp clone <username> <repo> <directory>`                                   | Clones a GitHub repository                |
-| `rasp upload <containerName> <connectionString> <filePath>`                  | Uploads a file to Azure Blob Storage      |
-| `rasp download <blobName> <containerName> <connectionString> <directory>`    |  Downloads a blob from Azure Blob Storage |
+#### Repository Management
 
-## Example Usage
+- `init`               - Initialize a new Rasp repository
+- `drop`               - Delete the current Rasp repository
 
-### Move a File
+#### File Operations
 
-```sh
-rasp move C:\Users\User\Desktop\file.txt D:\Backup\
+- `add`                - Add a file to the staging area
+- `commit`             - Commit staged changes with a message
+- `revert`             - Revert a specific file in the staging area
+- `mv`                 - Move a file
+- `cp`                 - Copy a file
+- `delete, -d`         - Delete a file, description, or branch
+
+#### Branching
+
+- `branch`             - Create a new branch
+- `checkout`           - Switch to a specified branch
+- `merge`              - Merge a specified branch into the current branch
+
+#### Remote Operations
+
+- `clone`              - Clone a repository
+- `push`               - Upload files to the Azure server
+- `pull`               - Download files from the Azure server
+- `set`                - Configure the Azure connection string for remote storage
+
+#### Information & Logs
+
+- `logs`               - Show the history of repository actions
+- `status`             - Show the current repository status
+- `history`            - Show current branch's commit history
+
+### Options & Flags
+
+- `-h, --help`         - Show help for a command
+- `-v, --version`      - Display the current version of Rasp
+- `-m`                 - Specify a commit message
+- `-p`                 - Set user profile details
+- `-i`                 - Activate shell mode
+- `-o`                 - Deactivate shell mode
+- `-l`                 - List existing branches
+- `-rb, rollback`      - Roll back the latest commit
+
+## Examples
+
+Initialize a new repository:
+
+```
+rasp init
 ```
 
-### Copy a File
+Add and commit files:
 
-```sh
-rasp copy C:\Users\User\file.txt C:\Users\User\Documents\
+```
+rasp add myfile.txt
+rasp commit -m "Initial commit"
 ```
 
-### Delete a File
+Push changes to Azure:
 
-```sh
-rasp delete C:\Users\User\oldfile.txt
+```
+rasp push
 ```
 
-### Clone a Repository
+Rollback the latest commit:
 
-```sh
-rasp clone octocat Hello-World C:\Projects\
+```
+rasp rollback
 ```
 
-### Uploads a File
+For more details, run:
 
-```sh
-rasp upload container conn%asdfawe C:\Projects\file.txt
 ```
-
-### Downloads a File
-
-```sh
-rasp download blob container conn%asdfawe C:\Projects\folder
+rasp <command> --help
 ```
 
 ## License
 
-This project is licensed under the MIT License.
+Rasp is an open-source project. You are free to modify and distribute it under the MIT License.
 
 ## Author
 
 Created by **Kisetsu**.
+
+## Contributing
+
+Feel free to contribute by submitting pull requests, reporting issues, or suggesting improvements.
+
+---
+
+
 
