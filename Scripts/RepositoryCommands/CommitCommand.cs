@@ -84,7 +84,7 @@ namespace Rasp {
                     { Key.message, message },
                     { Key.author, config.TryGetValue(Key.author, out string? user) ? user : Value.unknown },
                     { Key.timeStamp, DateTime.Now.ToString() },
-                    { "files", filesList }
+                    { Key.files, filesList }
                 };
 
                 string log = $"{config[Key.author]} committed {count} changes to {config[Key.branch]} branch.";
