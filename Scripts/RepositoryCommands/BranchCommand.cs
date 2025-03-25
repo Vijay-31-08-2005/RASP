@@ -75,7 +75,7 @@
             Console.WriteLine();
             Console.WriteLine("Options:");
             Console.WriteLine("  <branch-name>    Creates a new branch with the specified name.");
-            Console.WriteLine("  /list            Lists all available branches.");
+            Console.WriteLine("  -l               Lists all available branches.");
             Console.WriteLine("  -h, --help       Show this help message");
             Console.WriteLine();
         }
